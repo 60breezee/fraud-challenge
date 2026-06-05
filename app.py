@@ -16,194 +16,243 @@ st.set_page_config(page_title="FRAUD-SHIELD | Executive Command", page_icon="�
 def apply_executive_style():
     st.markdown("""
         <style>
-        /* Typography : Times New Roman */
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+
+        /* Typography Override */
         html, body, [class*="st-"] {
             font-family: 'Times New Roman', Times, serif !important;
         }
 
         :root {
-            --executive-dark: #1a1c1e;
-            --executive-gold: #c5a059;
-            --executive-green: #0b3d2e;
-            --paper-white: #fdfdfd;
-            --border-subtle: #e1e1e1;
+            --executive-dark: #0a0b0c;
+            --executive-gold: #d4af37;
+            --executive-accent: #1e293b;
+            --paper-white: #ffffff;
+            --risk-high: #dc2626;
+            --risk-low: #059669;
         }
 
         .stApp {
-            background-color: var(--paper-white);
-            color: #2c2c2c;
+            background-color: #f8fafc;
+            color: #1e293b;
         }
 
-        /* Sidebar Executive Look */
+        /* Sidebar Glassmorphism */
         [data-testid="stSidebar"] {
             background-color: var(--executive-dark) !important;
-            color: white !important;
             border-right: 2px solid var(--executive-gold);
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
         }
         
         [data-testid="stSidebar"] * {
-            color: white !important;
-            font-family: 'Times New Roman', Times, serif !important;
+            color: #e2e8f0 !important;
         }
 
-        /* Executive Headers */
+        /* Card System */
+        .exec-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border-top: 3px solid var(--executive-gold);
+        }
+
         h1, h2, h3 {
-            font-family: 'Times New Roman', Times, serif !important;
-            font-weight: 700 !important;
-            color: var(--executive-dark) !important;
-            border-bottom: 1px solid var(--executive-gold);
-            padding-bottom: 10px;
+            font-weight: 800 !important;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
+            color: var(--executive-dark) !important;
         }
 
-        /* Premium Metrics */
+        /* Metric Overrides */
         [data-testid="stMetric"] {
-            background: #ffffff;
-            border-left: 4px solid var(--executive-gold);
+            background: white !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 4px !important;
             padding: 20px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        
-        [data-testid="stMetricLabel"] {
-            font-style: italic !important;
-            font-size: 1.1rem !important;
+            border-left: 5px solid var(--executive-gold) !important;
         }
 
-        /* Executive Buttons */
         .stButton>button {
-            background-color: var(--executive-dark) !important;
+            background: var(--executive-dark) !important;
             color: var(--executive-gold) !important;
             border: 1px solid var(--executive-gold) !important;
             border-radius: 0px !important;
             font-weight: 700 !important;
-            text-transform: uppercase;
-            padding: 15px 30px !important;
-            transition: all 0.3s ease;
-        }
-        
-        .stButton>button:hover {
-            background-color: var(--executive-gold) !important;
-            color: white !important;
+            letter-spacing: 2px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Status Badges */
-        .risk-badge {
-            padding: 5px 15px;
-            border: 1px solid #d32f2f;
-            color: #d32f2f;
+        .stButton>button:hover {
+            background: var(--executive-gold) !important;
+            color: white !important;
+            transform: scale(1.02);
+        }
+
+        .status-pill {
+            padding: 2px 10px;
+            font-size: 10px;
             font-weight: bold;
+            border-radius: 100px;
             text-transform: uppercase;
-            font-size: 0.8rem;
         }
-        
-        /* Layout adjustments */
-        .main .block-container {
-            padding-top: 2rem;
-        }
-        
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
         </style>
     """, unsafe_allow_html=True)
+
+def render_radar_chart(merged):
+    # Dimensions de risque agrégées pour le radar
+    categories = ['Volume', 'Score de Risque', 'Géo-Vélocité', 'Pic de Montant', 'Fréquence']
+    
+    # Agrégation factice pour l'effet radar
+    values = [
+        len(merged) / 100,
+        merged['fraud_score'].mean() * 10,
+        merged[merged['reason'].str.contains('Géo|Incohérence', na=False)]['fraud_score'].count() * 2,
+        merged[merged['reason'].str.contains('Montant', na=False)]['fraud_score'].count() * 2,
+        merged[merged['reason'].str.contains('fréquentes', na=False)]['fraud_score'].count() * 2
+    ]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        name='Profil de Risque',
+        line_color=None,
+        fillcolor='rgba(212, 175, 55, 0.4)'
+    ))
+
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
+        showlegend=False,
+        font_family="Times New Roman",
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=40, r=40, t=40, b=40)
+    )
+    return fig
 
 def render_executive_dashboard(df, results_df):
     merged = pd.concat([df, results_df.drop(columns=['transaction_id'])], axis=1)
     
-    # --- TOP ROW : KPI ---
-    st.markdown("### Executive Summary")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("Portfolio Volume", len(df))
-    with c2:
-        st.metric("Critical Alerts", len(merged[merged['is_suspicious']]))
-    with c3:
-        st.metric("Exposure Index", f"{merged['fraud_score'].mean():.2f}")
-    with c4:
-        st.metric("Asset Safety", f"{(1 - merged['is_suspicious'].sum()/len(df))*100:.1f}%")
+    # Traitement des données complètes
+    filtered = merged.copy()
+
+    # KPIs
+    st.markdown("### INDICATEURS CLÉS D'INTELLIGENCE")
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("UNITÉS ANALYSÉES", len(df))
+    k2.metric("MENACES NEUTRALISÉES", len(filtered[filtered['is_suspicious']]))
+    k3.metric("VECTEUR D'ATTAQUE MOYEN", f"{filtered['fraud_score'].mean():.2f}" if not filtered.empty else "0.00")
+    k4.metric("INTÉGRITÉ DU SYSTÈME", f"{(1 - filtered['is_suspicious'].sum()/len(df))*100:.1f}%" if len(df) > 0 else "100%")
 
     st.divider()
 
-    # --- MIDDLE ROW : PLANISPHERE & DISTRIBUTION ---
-    col_map, col_dist = st.columns([2, 1])
+    # Grille d'Analyse Visuelle
+    col_a, col_b = st.columns([1.5, 1])
     
-    with col_map:
-        st.markdown("### Global Risk Surveillance")
-        geo_data = merged.groupby('country').size().reset_index(name='Volume')
-        fig_map = px.choropleth(geo_data, locations='country', color='Volume',
-                                color_continuous_scale='YlOrBr',
-                                projection="natural earth")
-        fig_map.update_layout(
-            font_family="Times New Roman",
-            paper_bgcolor='rgba(0,0,0,0)',
-            geo_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0, r=0, t=0, b=0)
-        )
-        st.plotly_chart(fig_map, use_container_width=True)
+    with col_a:
+        st.markdown("### SURVEILLANCE GÉOSPATIALE GLOBALE (3D)")
+        if not filtered.empty:
+            # Agrégation avancée pour le globe
+            geo_data = filtered.groupby('country').agg({
+                'fraud_score': 'mean',
+                'transaction_id': 'count'
+            }).reset_index()
+            geo_data.columns = ['country', 'Risque Moyen', 'Volume']
+            
+            fig_map = px.choropleth(
+                geo_data, 
+                locations='country', 
+                color='Risque Moyen',
+                hover_name='country',
+                hover_data={'Volume': True, 'Risque Moyen': ':.2f'},
+                color_continuous_scale='YlOrBr',
+                projection="orthographic"  # Passage en mode Globe 3D
+            )
+            
+            fig_map.update_geos(
+                showcountries=True, 
+                countrycolor="rgba(212, 175, 55, 0.2)",
+                showocean=True, 
+                oceancolor="rgba(10, 11, 12, 0.05)",
+                showlakes=True, 
+                lakecolor="rgba(10, 11, 12, 0.05)",
+                projection_type="orthographic",
+                bgcolor='rgba(0,0,0,0)'
+            )
+            
+            fig_map.update_layout(
+                font_family="Times New Roman", 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                margin=dict(l=0, r=0, t=0, b=0),
+                coloraxis_colorbar=dict(title="Risque", thickness=15, len=0.5)
+            )
+            st.plotly_chart(fig_map, use_container_width=True)
+        else:
+            st.info("Aucune donnée disponible pour la cartographie.")
 
-    with col_dist:
-        st.markdown("### Verdict Distribution")
-        risk_counts = merged['is_suspicious'].value_counts().reset_index()
-        risk_counts.columns = ['Status', 'Count']
-        risk_counts['Status'] = risk_counts['Status'].map({True: 'HIGH RISK', False: 'SECURE'})
-        fig_donut = px.pie(risk_counts, values='Count', names='Status', hole=0.5,
-                           color_discrete_sequence=['#c5a059', '#1a1c1e'])
-        fig_donut.update_layout(font_family="Times New Roman", showlegend=True,
-                               margin=dict(l=0, r=0, t=30, b=0))
-        st.plotly_chart(fig_donut, use_container_width=True)
+    with col_b:
+        st.markdown("### PROFIL DE RISQUE MULTI-DIMENSIONNEL")
+        if not filtered.empty:
+            st.plotly_chart(render_radar_chart(filtered), use_container_width=True)
+        else:
+            st.info("Données insuffisantes pour le profilage de risque.")
 
-    # --- BOTTOM ROW : ANALYTICS & LOG ---
-    st.markdown("### Advanced Risk Analytics")
-    col_line, col_table = st.columns([1, 1])
-    
-    with col_line:
-        # Time distribution diagram
-        merged['timestamp'] = pd.to_datetime(merged['timestamp'])
-        time_data = merged.resample('D', on='timestamp').count().reset_index()
-        fig_line = px.line(time_data, x='timestamp', y='transaction_id', 
-                           title="Activity Trendline")
-        fig_line.update_traces(line_color='#c5a059')
-        fig_line.update_layout(font_family="Times New Roman", paper_bgcolor='rgba(0,0,0,0)', 
-                               plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_line, use_container_width=True)
-
-    with col_table:
-        st.markdown("### Transaction Ledger")
+    # Registre détaillé
+    st.markdown("### REGISTRE FORENSIQUE DES TRANSACTIONS")
+    if not filtered.empty:
+        # Tri sécurisé
+        filtered['fraud_score'] = pd.to_numeric(filtered['fraud_score'], errors='coerce').fillna(0)
         st.dataframe(
-            merged[['transaction_id', 'amount', 'country', 'fraud_score', 'reason']].head(10),
-            use_container_width=True
+            filtered[['transaction_id', 'user_id', 'amount', 'country', 'fraud_score', 'reason']].sort_values('fraud_score', ascending=False),
+            use_container_width=True,
+            height=500
         )
+    else:
+        st.warning("Aucune transaction ne correspond aux critères forensiques sélectionnés.")
 
 def main():
     apply_executive_style()
     
-    # Custom Header
+    # En-tête personnalisé
     st.markdown("""
         <div style="text-align: center; border-bottom: 2px solid #c5a059; padding-bottom: 20px; margin-bottom: 30px;">
-            <h1 style="font-size: 3rem; margin: 0;">FINANCIAL INTEGRITY COMMAND</h1>
-            <p style="font-style: italic; font-size: 1.2rem; color: #666;">High-Level Fraud Surveillance & Neural Auditing</p>
+            <h1 style="font-size: 3rem; margin: 0;">COMMANDEMENT DE L'INTÉGRITÉ FINANCIÈRE</h1>
+            <p style="font-style: italic; font-size: 1.2rem; color: #666;">Surveillance de Fraude de Haut Niveau & Audit Neuronal</p>
         </div>
     """, unsafe_allow_html=True)
 
     with st.sidebar:
-        st.markdown("<h2 style='color:white; border:none;'>CONTROL PANEL</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color:white; border:none;'>PANNEAU DE CONTRÔLE</h2>", unsafe_allow_html=True)
         st.divider()
-        use_sample = st.checkbox("Stream Live Data Sample", value=True)
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.info("System Status: OPERATIONAL")
-        st.caption("Protocol: INTELO-2026-X")
+        use_sample = st.toggle("Utiliser les données d'exemple", value=True)
+        
+        data = []
+        if use_sample:
+            SAMPLE_CSV = Path(__file__).parent / "data" / "sample_transactions.csv"
+            data = load_transactions(str(SAMPLE_CSV))
+            st.success(f"Flux d'exemple : {len(data)} tx")
+        else:
+            uploaded = st.file_uploader("IMPORTER FLUX CSV", type="csv")
+            if uploaded:
+                tmp = Path(".upload_current.csv")
+                tmp.write_bytes(uploaded.getvalue())
+                data = load_transactions(str(tmp))
+                st.success(f"Flux personnalisé : {len(data)} tx")
 
-    # Data Loading
-    SAMPLE_CSV = Path(__file__).parent / "data" / "sample_transactions.csv"
-    data = load_transactions(str(SAMPLE_CSV)) if use_sample else []
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.info("Statut Système : OPÉRATIONNEL")
+        st.caption("Protocole : INTELO-2026-X")
 
     if data:
-        if st.button("AUTHENTICATE & ANALYZE NEURAL FEED", use_container_width=True):
-            with st.spinner("Processing Secure Feed..."):
+        if st.button("AUTHENTIFIER & ANALYSER LE FLUX NEURONAL", use_container_width=True):
+            with st.spinner("Traitement du flux sécurisé..."):
                 results = detect_fraud(data)
                 render_executive_dashboard(pd.DataFrame(data), pd.DataFrame(results))
     else:
-        st.warning("Awaiting secure data feed for initialization.")
+        st.warning("En attente du flux de données sécurisé pour initialisation.")
 
 if __name__ == "__main__":
     main()
