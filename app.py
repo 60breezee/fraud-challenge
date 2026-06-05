@@ -1,168 +1,206 @@
 """
-Interface Streamlit — FRAUD-SHIELD.
+Interface FRAUD-SHIELD Ultra-Premium.
 Hackathon INTELO 2026.
 """
 
-from pathlib import Path
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+from pathlib import Path
 from fraud_detection import detect_fraud, load_transactions
 
 SAMPLE_CSV = Path(__file__).parent / "data" / "sample_transactions.csv"
 
-def render_interface(transactions: list[dict], results: list[dict]) -> None:
-    n_total = len(transactions)
-    n_alert = sum(1 for r in results if r["is_suspicious"])
-    n_clean = n_total - n_alert
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Analysées", n_total)
-    col2.metric("Alertes", n_alert, delta_color="inverse")
-    col3.metric("Légitimes", n_clean)
-    col4.metric("Taux de Risque", f"{n_alert / n_total * 100:.0f}%" if n_total else "—")
-
-    st.divider()
-
-    merged = []
-    for tx, res in zip(transactions, results):
-        row = {**tx, **res}
-        score = row["fraud_score"]
-        if score >= 0.8:
-            row["niveau"] = "Critique"
-            row["couleur"] = "#dc3545"
-        elif score >= 0.6:
-            row["niveau"] = "Moyen"
-            row["couleur"] = "#ffc107"
-        else:
-            row["niveau"] = "Normal"
-            row["couleur"] = "#28a745"
-        merged.append(row)
-
-    tab_tout, tab_alertes, tab_detail = st.tabs([
-        "📊 Flux de transactions", "🚨 Alertes de sécurité", "🔍 Analyse granulaire"
-    ])
-
-    with tab_tout:
-        display = []
-        for row in merged:
-            display.append({
-                "ID": row["transaction_id"],
-                "Client": row["user_id"],
-                "Montant": f'{row["amount"]:,.2f}' if row["amount"] is not None else "—",
-                "Devise": row["currency"] or "—",
-                "Pays": row["country"] or "—",
-                "Date": (row["timestamp"][:19] if row["timestamp"] else "—"),
-                "Score": row["fraud_score"],
-                "Risque": row["niveau"],
-                "Raison": row["reason"],
-            })
-        st.dataframe(display, use_container_width=True, height=500)
-
-    with tab_alertes:
-        alertes = [row for row in merged if row["is_suspicious"]]
-        if not alertes:
-            st.success("Aucune menace détectée dans le flux actuel.")
-        else:
-            for row in alertes:
-                score = row["fraud_score"]
-                lbl = "CRITIQUE" if score >= 0.8 else "SUSPECT"
-                border = "#dc3545" if score >= 0.8 else "#ffc107"
-                
-                st.markdown(
-                    f'<div style="background-color: #1c2128; border: 1px solid #30363d; border-left: 5px solid {border}; '
-                    f'padding: 20px; border-radius: 8px; margin-bottom: 15px;">'
-                    f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                    f'<span style="font-size:1.2rem; font-weight:bold; color:#f0f6fc;">{row["transaction_id"]}</span>'
-                    f'<span style="background:{border}; color:white; padding:2px 8px; border-radius:12px; font-size:0.8rem;">{lbl}</span>'
-                    f'</div>'
-                    f'<div style="margin-top:10px; color:#8b949e;">'
-                    f'Client: <strong style="color:#c9d1d9;">{row["user_id"]}</strong> | '
-                    f'Montant: <strong style="color:#c9d1d9;">{row["amount"]:,.2f} {row["currency"] or ""}</strong> | '
-                    f'Pays: <strong style="color:#c9d1d9;">{row["country"] or "—"}</strong>'
-                    f'</div>'
-                    f'<div style="margin-top:15px; color:#ff7b72; font-weight:600;">'
-                    f'🚩 {row["reason"]}'
-                    f'</div>'
-                    f'<div style="margin-top:5px; font-size:0.9rem; color:#8b949e;">'
-                    f'Score de risque: {score:.2f} / 1.00'
-                    f'</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-
-    with tab_detail:
-        ids = [r["transaction_id"] for r in results]
-        choix = st.selectbox("Sélectionner une transaction pour audit :", ids)
-        row = next(r for r in merged if r["transaction_id"] == choix)
-        tx_orig = next(t for t in transactions if t["transaction_id"] == choix)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("Données d'origine")
-            st.json(tx_orig)
-        with c2:
-            st.subheader("Évaluation de l'IA")
-            score = row["fraud_score"]
-            if score >= 0.6:
-                st.error(f"⚠️ Alerte confirmée ({score:.2f})")
-            else:
-                st.success(f"✅ Transaction validée ({score:.2f})")
-            
-            st.info(f"**Raison principale :** {row['reason']}")
-            st.markdown(f"**Action recommandée :** {'Bloquer' if row['is_suspicious'] else 'Autoriser'}")
-
-def main() -> None:
-    st.set_page_config(
-        page_title="FRAUD-SHIELD | Security Suite",
-        page_icon="🛡️",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-
-    # Dark Mode Styling
+def apply_premium_style():
     st.markdown("""
         <style>
-        .stApp { background-color: #0d1117; color: #c9d1d9; }
-        header, [data-testid="stSidebar"] { background-color: #161b22 !important; }
-        .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
-        [data-testid="stMetricValue"] { color: #58a6ff !important; }
-        h1, h2, h3 { color: #f0f6fc !important; }
-        .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-        .stTabs [data-baseweb="tab"] { 
-            background-color: #161b22; border: 1px solid #30363d; border-radius: 5px 5px 0 0; color: #8b949e;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-deep: #05070a;
+            --bg-card: #0d1117;
+            --accent: #2f81f7;
+            --danger: #f85149;
+            --success: #3fb950;
+            --text-main: #adbac7;
+            --text-bright: #f0f6fc;
         }
-        .stTabs [aria-selected="true"] { background-color: #1f6feb !important; color: white !important; }
+
+        .stApp {
+            background-color: var(--bg-deep);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Glassmorphism Cards */
+        .premium-card {
+            background: rgba(13, 17, 23, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(48, 54, 61, 0.5);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .premium-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 8px 32px rgba(47, 129, 247, 0.15);
+        }
+
+        /* Metrics Styling */
+        [data-testid="stMetric"] {
+            background: rgba(22, 27, 34, 0.5);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 15px !important;
+        }
+        
+        [data-testid="stMetricValue"] {
+            font-weight: 800 !important;
+            font-size: 2rem !important;
+            color: var(--text-bright) !important;
+        }
+
+        /* Sidebar Glass */
+        [data-testid="stSidebar"] {
+            background-color: #010409 !important;
+            border-right: 1px solid #30363d;
+        }
+
+        /* Modern Typography */
+        h1, h2, h3 {
+            font-weight: 800 !important;
+            letter-spacing: -0.02em !important;
+            color: var(--text-bright) !important;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .stButton>button {
+            background: linear-gradient(135deg, #2f81f7 0%, #216eaf 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            transition: transform 0.2s ease;
+        }
+
+        .stButton>button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(47, 129, 247, 0.3);
+        }
+        
+        /* Hide default Streamlit elements */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
         </style>
     """, unsafe_allow_html=True)
 
-    st.title("🛡️ FRAUD-SHIELD")
-    st.caption("Système avancé de détection de fraude financière")
+def render_dashboard(df, results_df):
+    merged = pd.concat([df, results_df.drop(columns=['transaction_id'])], axis=1)
+    
+    # KPIs Row
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Volume Total", len(df))
+    with c2:
+        st.metric("Alertes Critiques", len(merged[merged['is_suspicious']]))
+    with c3:
+        st.metric("Score Moyen", f"{merged['fraud_score'].mean():.2f}")
+    with c4:
+        st.metric("Exposition Risque", f"{(merged['is_suspicious'].sum()/len(df)*100):.1f}%")
+
+    st.markdown("### 🛰️ ANALYSE ANALYTIQUE")
+    
+    col_left, col_right = st.columns([2, 1])
+    
+    with col_left:
+        # Time Series
+        merged['timestamp'] = pd.to_datetime(merged['timestamp'])
+        time_data = merged.resample('D', on='timestamp').count().reset_index()
+        fig_time = px.area(time_data, x='timestamp', y='transaction_id', 
+                          title="Tendance Temporelle des Transactions",
+                          color_discrete_sequence=['#2f81f7'])
+        fig_time.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                              font_color='#adbac7', margin=dict(l=0, r=0, t=40, b=0))
+        st.plotly_chart(fig_time, use_container_width=True)
+
+    with col_right:
+        # Risk Distribution
+        risk_counts = merged['is_suspicious'].value_counts().reset_index()
+        risk_counts.columns = ['Status', 'Count']
+        risk_counts['Status'] = risk_counts['Status'].map({True: 'SUSPECT', False: 'LÉGITIME'})
+        fig_pie = px.pie(risk_counts, values='Count', names='Status', 
+                        title="Répartition du Risque",
+                        color='Status',
+                        color_discrete_map={'SUSPECT': '#f85149', 'LÉGITIME': '#3fb950'})
+        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='#adbac7',
+                             margin=dict(l=0, r=0, t=40, b=0), showlegend=False)
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    # Geographic Activity
+    st.markdown("### 🌍 ACTIVITÉ GÉOGRAPHIQUE")
+    geo_data = merged.groupby('country').size().reset_index(name='Volume')
+    fig_geo = px.choropleth(geo_data, locations='country', color='Volume',
+                           color_continuous_scale='Blues',
+                           title="Intensité des Transactions par Pays")
+    fig_geo.update_layout(paper_bgcolor='rgba(0,0,0,0)', geo_bgcolor='rgba(0,0,0,0)',
+                         font_color='#adbac7', margin=dict(l=0, r=0, t=40, b=0))
+    st.plotly_chart(fig_geo, use_container_width=True)
+
+    # Detailed Table
+    st.markdown("### 🛡️ REGISTRE DE SÉCURITÉ")
+    st.dataframe(
+        merged[['transaction_id', 'user_id', 'amount', 'currency', 'country', 'fraud_score', 'reason']],
+        use_container_width=True,
+        height=400
+    )
+
+def main():
+    st.set_page_config(page_title="FRAUD-SHIELD COMMAND", page_icon="🛡️", layout="wide")
+    apply_premium_style()
+
+    st.markdown("<h1 style='text-align: center; margin-bottom: 0;'>🛡️ FRAUD-SHIELD COMMAND</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #58a6ff; font-weight: 600;'>INTELLIGENCE DE SÉCURITÉ FINANCIÈRE HAUTE PERFORMANCE</p>", unsafe_allow_html=True)
 
     with st.sidebar:
-        st.header("Configuration")
-        use_sample = st.checkbox("Flux de test (Data Sample)", value=True)
-        
-        if use_sample:
-            transactions = load_transactions(str(SAMPLE_CSV))
-            st.success(f"📡 Flux actif : {len(transactions)} tx")
-        else:
-            uploaded = st.file_uploader("Importer flux CSV", type=["csv"])
-            if uploaded:
-                tmp = Path(".upload.csv")
-                tmp.write_bytes(uploaded.getvalue())
-                transactions = load_transactions(str(tmp))
-                st.success(f"📥 Import réussi : {len(transactions)} tx")
-            else:
-                transactions = []
+        st.image("https://img.icons8.com/fluency/144/shield.png", width=80)
+        st.header("SYSTÈME")
+        use_sample = st.toggle("FLUX DE TEST ACTIF", value=True)
+        st.divider()
+        st.caption("STATUT DU NOYAU : OPÉRATIONNEL")
+        st.caption("VERSION : 2.6.0-PREMIUM")
 
-    if transactions:
-        if st.button("Lancer l'Analyse de Risque", type="primary"):
-            st.session_state.results = detect_fraud(transactions)
-            st.session_state.transactions = transactions
-        
-        if "results" in st.session_state:
-            render_interface(st.session_state.transactions, st.session_state.results)
+    data = []
+    if use_sample:
+        data = load_transactions(str(SAMPLE_CSV))
     else:
-        st.info("Veuillez charger un flux de transactions pour démarrer l'analyse.")
+        uploaded = st.file_uploader("IMPORTER FLUX CSV", type="csv")
+        if uploaded:
+            tmp = Path(".upload.csv")
+            tmp.write_bytes(uploaded.getvalue())
+            data = load_transactions(str(tmp))
+
+    if data:
+        df = pd.DataFrame(data)
+        if st.button("EXÉCUTER L'ANALYSE NEURONALE", use_container_width=True):
+            with st.spinner("TRAITEMENT DES SIGNAUX..."):
+                results = detect_fraud(data)
+                st.session_state.results_df = pd.DataFrame(results)
+                st.session_state.df = df
+
+        if "results_df" in st.session_state:
+            render_dashboard(st.session_state.df, st.session_state.results_df)
+    else:
+        st.info("EN ATTENTE DE DONNÉES POUR INITIALISATION...")
 
 if __name__ == "__main__":
     main()
