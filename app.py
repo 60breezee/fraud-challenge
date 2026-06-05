@@ -130,7 +130,7 @@ def render_dashboard(df, results_df):
                           title="Tendance Temporelle des Transactions",
                           color_discrete_sequence=['#2f81f7'])
         fig_time.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              font_color='#adbac7', margin=dict(l=0, r=0, t=40, b=0))
+                              font_color='#475569', margin=dict(l=0, r=0, t=40, b=0))
         st.plotly_chart(fig_time, use_container_width=True)
 
     with col_right:
@@ -141,8 +141,9 @@ def render_dashboard(df, results_df):
         fig_pie = px.pie(risk_counts, values='Count', names='Status', 
                         title="Répartition du Risque",
                         color='Status',
-                        color_discrete_map={'SUSPECT': '#f85149', 'LÉGITIME': '#3fb950'})
-        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='#adbac7',
+                        color_discrete_map={'SUSPECT': '#ef4444', 'LÉGITIME': '#22c55e'},
+                        hole=0.4)
+        fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='#475569',
                              margin=dict(l=0, r=0, t=40, b=0), showlegend=False)
         st.plotly_chart(fig_pie, use_container_width=True)
 
@@ -150,10 +151,10 @@ def render_dashboard(df, results_df):
     st.markdown("### 🌍 ACTIVITÉ GÉOGRAPHIQUE")
     geo_data = merged.groupby('country').size().reset_index(name='Volume')
     fig_geo = px.choropleth(geo_data, locations='country', color='Volume',
-                           color_continuous_scale='Blues',
+                           color_continuous_scale='GnBu',
                            title="Intensité des Transactions par Pays")
     fig_geo.update_layout(paper_bgcolor='rgba(0,0,0,0)', geo_bgcolor='rgba(0,0,0,0)',
-                         font_color='#adbac7', margin=dict(l=0, r=0, t=40, b=0))
+                         font_color='#475569', margin=dict(l=0, r=0, t=40, b=0))
     st.plotly_chart(fig_geo, use_container_width=True)
 
     # Detailed Table
