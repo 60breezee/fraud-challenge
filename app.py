@@ -84,16 +84,22 @@ def render_interface(transactions: list[dict], results: list[dict]) -> None:
                     border = "#ffc107"
                     lbl = "ATTENTION"
                 st.markdown(
-                    f'<div style="border-left:5px solid {border};background:{bg};'
-                    f'padding:1rem;border-radius:6px;margin-bottom:1rem">'
-                    f'<strong style="font-size:1.1rem">{row["transaction_id"]}</strong>'
-                    f' — Client <strong>{row["user_id"]}</strong>'
-                    f' · {row["amount"]:,.2f} {row["currency"] or ""}'
-                    f' · {row["country"] or "—"}'
-                    f' · {row["timestamp"][:19] if row["timestamp"] else "—"}'
-                    f'<br><span style="color:{border};font-weight:bold">{lbl}</span>'
-                    f' — Score de risque : {score:.2f}/1.00'
-                    f'<br>📌 <em>{row["reason"]}</em>'
+                    f'<div class="fraud-card">'
+                    f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                    f'<span style="font-size:1.2rem; font-weight:bold; color:#f0f6fc;">{row["transaction_id"]}</span>'
+                    f'<span style="background:{border}; color:white; padding:2px 8px; border-radius:12px; font-size:0.8rem;">{lbl}</span>'
+                    f'</div>'
+                    f'<div style="margin-top:10px; color:#8b949e;">'
+                    f'Client: <strong style="color:#c9d1d9;">{row["user_id"]}</strong> | '
+                    f'Montant: <strong style="color:#c9d1d9;">{row["amount"]:,.2f} {row["currency"] or ""}</strong> | '
+                    f'Pays: <strong style="color:#c9d1d9;">{row["country"] or "—"}</strong>'
+                    f'</div>'
+                    f'<div style="margin-top:15px; color:#ff7b72; font-weight:600;">'
+                    f'🚩 {row["reason"]}'
+                    f'</div>'
+                    f'<div style="margin-top:5px; font-size:0.9rem; color:#8b949e;">'
+                    f'Score de risque: {score:.2f} / 1.00'
+                    f'</div>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )

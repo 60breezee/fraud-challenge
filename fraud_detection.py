@@ -163,9 +163,26 @@ def detect_fraud(transactions):
                             signals.append(("Changement de pays trop rapide", 0.70))
                             break
 
+            # Changement de devise inhabituel
+            curr = tx.get("currency")
+            if uid and curr and user_tx[uid]:
+                other_currencies = {t.get("currency") for j, t in user_tx[uid] if j != i and t.get("currency")}
+                if other_currencies and curr not in other_currencies:
+                    signals.append(("Nouvelle devise inhabituelle", 0.65))
+
+            # Répétition rapide chez le même commerçant
+            merch = tx.get("merchant")
+            if uid and merch and ts:
+                same_merch_recent = 0
+                for j, other in user_tx[uid]:
+                    if j == i: continue
+                    if other.get("merchant") == merch and _time_diff_hours(ts, other.get("timestamp")) < 0.05: # < 3 min
+                        same_merch_recent += 1
+                if same_merch_recent >= 2:
+                    signals.append(("Répétition suspecte chez le même commerçant", 0.75))
+
             if tx.get("card_present") is False and amount is not None and amount > 500:
                  signals.append(("Transaction en ligne de montant élevé", 0.65))
-
 
             if ts:
                 recent = 0
@@ -186,9 +203,11 @@ def detect_fraud(transactions):
                            "Champs obligatoires manquants": 2,
                            "Montant très supérieur à l'habitude du client": 3,
                            "Incohérence géographique majeure": 4,
-                           "Changement de pays trop rapide": 5,
-                           "Transaction en ligne de montant élevé": 6,
-                           "Transactions trop fréquentes": 7}.get(name, 99)
+                           "Répétition suspecte chez le même commerçant": 5,
+                           "Changement de pays trop rapide": 6,
+                           "Nouvelle devise inhabituelle": 7,
+                           "Transaction en ligne de montant élevé": 8,
+                           "Transactions trop fréquentes": 9}.get(name, 99)
                 ordered.append((priority, name, score))
             ordered.sort(key=lambda x: x[0])
             best_name = ordered[0][1]
