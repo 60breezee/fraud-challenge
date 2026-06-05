@@ -19,29 +19,135 @@ SAMPLE_CSV = Path(__file__).parent / "data" / "sample_transactions.csv"
 
 
 def render_interface(transactions: list[dict], results: list[dict]) -> None:
-    """
-    ══════════════════════════════════════════════════════════════════
-    À COMPLÉTER — votre interface intuitive pour le jury / le public.
-    ══════════════════════════════════════════════════════════════════
+    n_total = len(transactions)
+    n_alert = sum(1 for r in results if r["is_suspicious"])
+    n_clean = n_total - n_alert
 
-    Idées (libres) :
-      - titres et textes en langage simple (« transaction suspecte », « client à risque ») ;
-      - cartes / indicateurs visuels (nombre d'alertes, niveau de risque) ;
-      - tableau ou liste filtrable (uniquement les suspectes, par client, par pays…) ;
-      - codes couleur, icônes, graphiques ;
-      - zone « comment l'IA / vos règles décident » pour expliquer une alerte.
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Transactions analysées", n_total)
+    col2.metric("Alertes", n_alert, delta_color="inverse")
+    col3.metric("Normales", n_clean)
+    col4.metric("Taux d'alerte", f"{n_alert / n_total * 100:.0f}%" if n_total else "—")
 
-    Le jury évalue : clarté, utilité, intuitivité — pas le code en lui-même.
-    """
-    st.warning(
-        "Interface à compléter : remplacez ce message par votre propre écran "
-        "dans la fonction `render_interface()`."
-    )
+    st.divider()
 
-    # Fallback minimal — à remplacer par votre design
-    st.subheader("Aperçu brut (temporaire)")
-    st.caption(f"{len(transactions)} transactions · {sum(1 for r in results if r.get('is_suspicious'))} alerte(s)")
-    st.dataframe(results, use_container_width=True)
+    merged = []
+    for tx, res in zip(transactions, results):
+        row = {**tx, **res}
+        score = row["fraud_score"]
+        if score >= 0.8:
+            row["niveau"] = "Critique"
+            row["couleur"] = "#dc3545"
+        elif score >= 0.6:
+            row["niveau"] = "Moyen"
+            row["couleur"] = "#ffc107"
+        else:
+            row["niveau"] = "Normal"
+            row["couleur"] = "#28a745"
+        merged.append(row)
+
+    tab_tout, tab_alertes, tab_detail = st.tabs([
+        "Toutes les transactions", "Alertes uniquement", "Détail d'une transaction"
+    ])
+
+    with tab_tout:
+        display = []
+        for row in merged:
+            display.append({
+                "ID": row["transaction_id"],
+                "Client": row["user_id"],
+                "Montant": f'{row["amount"]:,.2f}' if row["amount"] is not None else "—",
+                "Devise": row["currency"] or "—",
+                "Pays": row["country"] or "—",
+                "Date": (row["timestamp"][:19] if row["timestamp"] else "—"),
+                "Score": row["fraud_score"],
+                "Risque": row["niveau"],
+                "Raison": row["reason"],
+            })
+        st.dataframe(display, use_container_width=True, height=400,
+                     column_order=["ID", "Client", "Montant", "Devise", "Pays",
+                                   "Date", "Score", "Risque", "Raison"])
+
+    with tab_alertes:
+        alertes = [row for row in merged if row["is_suspicious"]]
+        if not alertes:
+            st.success("Aucune transaction suspecte détectée.")
+        else:
+            for row in alertes:
+                score = row["fraud_score"]
+                if score >= 0.8:
+                    bg = "#f8d7da"
+                    border = "#dc3545"
+                    lbl = "CRITIQUE"
+                else:
+                    bg = "#fff3cd"
+                    border = "#ffc107"
+                    lbl = "ATTENTION"
+                st.markdown(
+                    f'<div style="border-left:5px solid {border};background:{bg};'
+                    f'padding:1rem;border-radius:6px;margin-bottom:1rem">'
+                    f'<strong style="font-size:1.1rem">{row["transaction_id"]}</strong>'
+                    f' — Client <strong>{row["user_id"]}</strong>'
+                    f' · {row["amount"]:,.2f} {row["currency"] or ""}'
+                    f' · {row["country"] or "—"}'
+                    f' · {row["timestamp"][:19] if row["timestamp"] else "—"}'
+                    f'<br><span style="color:{border};font-weight:bold">{lbl}</span>'
+                    f' — Score de risque : {score:.2f}/1.00'
+                    f'<br>📌 <em>{row["reason"]}</em>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+    with tab_detail:
+        ids = [r["transaction_id"] for r in results]
+        choix = st.selectbox("Choisissez une transaction :", ids)
+        row = next(r for r in merged if r["transaction_id"] == choix)
+        tx_orig = next(t for t in transactions if t["transaction_id"] == choix)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Transaction**")
+            st.write(f'ID : `{tx_orig["transaction_id"]}`')
+            st.write(f'Client : `{tx_orig["user_id"]}`')
+            st.write(f'Montant : {tx_orig["amount"]:,.2f} {tx_orig["currency"] or ""}'
+                     if tx_orig["amount"] is not None else "Montant : —")
+            st.write(f'Pays : {tx_orig["country"] or "—"}')
+            st.write(f'Commerçant : {tx_orig["merchant"] or "—"}')
+            st.write(f'Date : {tx_orig["timestamp"][:19] if tx_orig["timestamp"] else "—"}')
+            st.write(f'Carte présente : {"Oui" if tx_orig["card_present"] else "Non"}'
+                     if tx_orig["card_present"] is not None else "Carte présente : —")
+        with c2:
+            st.markdown("**Verdict**")
+            score = row["fraud_score"]
+            if score == 0:
+                st.success("✅ Transaction normale")
+            elif score < 0.6:
+                st.warning("⚠️ Légèrement atypique")
+            else:
+                st.error("🚨 Transaction suspecte")
+            st.progress(score, text=f"Score de risque : {score:.2f}")
+            st.write(f'Raison : _{row["reason"]}_')
+
+            avec_signal = row["is_suspicious"]
+            st.write(
+                f'Décision : **{"SUSPENDRE" if avec_signal else "AUTORISER"}** la transaction'
+            )
+
+        if tx_orig["user_id"]:
+            st.divider()
+            st.markdown("**Transactions du même client**")
+            memes = [t for t, r in zip(transactions, results)
+                     if t["user_id"] == tx_orig["user_id"]]
+            for m in memes:
+                res_m = next(r for r in results if r["transaction_id"] == m["transaction_id"])
+                flag = "🚨" if res_m["is_suspicious"] else "✅"
+                st.write(
+                    f'{flag} `{m["transaction_id"]}`'
+                    f' — {m["amount"]:,.2f} {m["currency"] or ""}'
+                    f' — {m["country"] or "—"}'
+                    f' — {m["timestamp"][:19] if m["timestamp"] else "—"}'
+                )
+            st.caption("Contexte : l'IA compare chaque transaction à l'historique du client pour décider.")
 
 
 def main() -> None:
@@ -56,7 +162,7 @@ def main() -> None:
 
     with st.sidebar:
         st.header("Charger des données")
-        use_sample = st.toggle("Utiliser le fichier d'exemple", value=True)
+        use_sample = st.checkbox("Utiliser le fichier d'exemple", value=True)
         transactions: list[dict] = []
 
         if use_sample:
@@ -83,15 +189,24 @@ def main() -> None:
 
     if st.button("Analyser", type="primary"):
         try:
-            results = detect_fraud(transactions)
+            st.session_state.results = detect_fraud(transactions)
+            st.session_state.transactions = transactions
         except NotImplementedError:
             st.error("Implémentez d'abord `detect_fraud` dans `fraud_detection.py`.")
+            st.session_state.pop("results", None)
             return
         except Exception as exc:
             st.error(f"Erreur : {exc}")
+            st.session_state.pop("results", None)
             return
 
-        render_interface(transactions, results)
+    if "results" in st.session_state and "transactions" in st.session_state:
+        try:
+            render_interface(st.session_state.transactions, st.session_state.results)
+        except Exception as exc:
+            st.error(f"Erreur dans l'interface : {exc}")
+            import traceback
+            st.code(traceback.format_exc())
 
 
 if __name__ == "__main__":
