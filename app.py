@@ -329,9 +329,22 @@ def render_executive_dashboard(df, results_df):
         cols = [c for c in cols if c in view.columns]
         view = view[cols].sort_values('fraud_score', ascending=False)
 
-        styled = view.style.background_gradient(
-            subset=['fraud_score'], cmap='YlOrRd', vmin=0, vmax=1
-        ).format({'fraud_score': '{:.2f}', 'amount': '{:.2f}'})
+        def _color_score(val):
+            try:
+                v = float(val)
+            except (TypeError, ValueError):
+                return ''
+            if v >= 0.7:
+                return 'background-color: #fee2e2; color: #991b1b; font-weight: bold'
+            if v >= 0.4:
+                return 'background-color: #fef3c7; color: #92400e; font-weight: bold'
+            return 'background-color: #dcfce7; color: #166534'
+
+        styler = view.style
+        # Styler.map (pandas >= 2.1) remplace applymap (déprécié/supprimé).
+        _apply_cell = getattr(styler, 'map', None) or styler.applymap
+        styled = _apply_cell(_color_score, subset=['fraud_score']) \
+            .format({'fraud_score': '{:.2f}', 'amount': '{:.2f}'})
 
         st.dataframe(styled, use_container_width=True, height=460)
     else:
