@@ -1,8 +1,9 @@
 """
-FRAUD-SHIELD EXECUTIVE COMMAND CENTER
-Style : Premium Executive - Typography : Times New Roman
+FRAUD-SHIELD — Centre de commandement de détection de fraude
+Interface Streamlit moderne (thème sombre fintech) pour le hackathon INTELO2026.
 """
 
+import io
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -10,11 +11,21 @@ import streamlit as st
 from pathlib import Path
 from fraud_detection import detect_fraud, load_transactions
 
-# Configuration de la page
-st.set_page_config(page_title="FRAUD-SHIELD | Executive Command", page_icon="🛡️", layout="wide")
+st.set_page_config(
+    page_title="FRAUD-SHIELD | Détection de fraude",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Palette
+PRIMARY = "#6366f1"
+CYAN = "#22d3ee"
+SAFE = "#10b981"
+WARN = "#f59e0b"
+DANGER = "#ef4444"
 
 # Référentiel géographique : ISO-2 -> (ISO-3, nom, latitude, longitude)
-# Permet de convertir les codes pays pour le globe 3D et de positionner les bulles.
 COUNTRY_INFO = {
     "FR": ("FRA", "France", 46.2, 2.2), "US": ("USA", "États-Unis", 37.1, -95.7),
     "JP": ("JPN", "Japon", 36.2, 138.3), "GB": ("GBR", "Royaume-Uni", 55.4, -3.4),
@@ -43,353 +54,448 @@ COUNTRY_INFO = {
     "IL": ("ISR", "Israël", 31.0, 34.9), "LU": ("LUX", "Luxembourg", 49.8, 6.1),
 }
 
-def apply_executive_style():
-    st.markdown("""
+
+def inject_css():
+    st.markdown(
+        """
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-        /* Typography Override */
-        html, body, [class*="st-"] {
-            font-family: 'Times New Roman', Times, serif !important;
-        }
-
-        :root {
-            --executive-dark: #0a0b0c;
-            --executive-gold: #d4af37;
-            --executive-accent: #1e293b;
-            --paper-white: #ffffff;
-            --risk-high: #dc2626;
-            --risk-low: #059669;
+        html, body, [class*="css"], [class*="st-"] {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
         }
 
         .stApp {
-            background-color: #f8fafc;
-            color: #1e293b;
+            background:
+                radial-gradient(1200px 600px at 80% -10%, rgba(99,102,241,0.18), transparent 60%),
+                radial-gradient(1000px 500px at 0% 0%, rgba(34,211,238,0.12), transparent 55%),
+                linear-gradient(180deg, #0b1220 0%, #0a0f1c 100%);
+            color: #e6edf6;
         }
 
-        /* Sidebar Glassmorphism */
+        #MainMenu, footer, header {visibility: hidden;}
+        .block-container {padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1500px;}
+
+        /* Sidebar */
         [data-testid="stSidebar"] {
-            background-color: var(--executive-dark) !important;
-            border-right: 2px solid var(--executive-gold);
-            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            background: rgba(10, 15, 28, 0.85);
+            border-right: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(12px);
         }
-        
-        [data-testid="stSidebar"] * {
-            color: #e2e8f0 !important;
+        [data-testid="stSidebar"] * { color: #cdd7e6 !important; }
+
+        h1, h2, h3, h4 { color: #f4f7fb !important; font-weight: 700 !important; letter-spacing: -0.01em; }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(34,211,238,0.08));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 28px 34px;
+            margin-bottom: 22px;
+            display: flex; align-items: center; gap: 22px;
+            box-shadow: 0 20px 50px -20px rgba(99,102,241,0.5);
+        }
+        .hero .logo {
+            font-size: 44px; line-height: 1;
+            filter: drop-shadow(0 6px 14px rgba(99,102,241,0.6));
+        }
+        .hero h1 { margin: 0; font-size: 1.9rem; font-weight: 800; }
+        .hero p { margin: 4px 0 0; color: #93a3bd; font-size: 0.98rem; }
+        .live {
+            margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35);
+            color: #34d399 !important; padding: 8px 14px; border-radius: 999px;
+            font-size: 0.8rem; font-weight: 600;
+        }
+        .live .dot {
+            width: 9px; height: 9px; border-radius: 50%; background: #34d399;
+            box-shadow: 0 0 0 0 rgba(52,211,153,0.7); animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(52,211,153,0); }
+            100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
         }
 
-        /* Card System */
-        .exec-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 4px;
-            padding: 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            border-top: 3px solid var(--executive-gold);
+        /* KPI cards */
+        .kpi {
+            background: rgba(255,255,255,0.035);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; padding: 18px 20px; height: 100%;
+            transition: transform .2s ease, border-color .2s ease;
+        }
+        .kpi:hover { transform: translateY(-3px); border-color: rgba(99,102,241,0.5); }
+        .kpi .label { font-size: 0.72rem; letter-spacing: .08em; text-transform: uppercase; color: #8b9bb4; }
+        .kpi .value { font-size: 1.9rem; font-weight: 800; margin: 6px 0 2px; }
+        .kpi .sub { font-size: 0.8rem; color: #93a3bd; }
+        .kpi.accent { border-top: 3px solid var(--c); }
+
+        /* Section title */
+        .section { display:flex; align-items:center; gap:10px; margin: 6px 0 10px; }
+        .section h3 { margin:0; font-size: 1.05rem; }
+        .section .bar { width: 4px; height: 20px; border-radius: 4px;
+            background: linear-gradient(180deg, #6366f1, #22d3ee); }
+
+        /* Panel */
+        .panel {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 16px; padding: 14px 16px;
         }
 
-        h1, h2, h3 {
-            font-weight: 800 !important;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--executive-dark) !important;
+        /* Risk row cards */
+        .riskcard {
+            background: rgba(255,255,255,0.035);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-left: 4px solid var(--c);
+            border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
         }
+        .riskcard .top { display:flex; justify-content:space-between; align-items:center; }
+        .riskcard .tid { font-weight: 700; color:#f4f7fb; }
+        .riskcard .score { font-weight: 800; color: var(--c); }
+        .riskcard .reason { font-size: 0.85rem; color:#aab8cf; margin-top:4px; }
+        .riskcard .meta { font-size: 0.78rem; color:#7d8db0; margin-top:2px; }
 
-        /* Metric Overrides */
-        [data-testid="stMetric"] {
-            background: white !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 4px !important;
-            padding: 20px !important;
-            border-left: 5px solid var(--executive-gold) !important;
-        }
-
+        /* Buttons */
         .stButton>button {
-            background: var(--executive-dark) !important;
-            color: var(--executive-gold) !important;
-            border: 1px solid var(--executive-gold) !important;
-            border-radius: 0px !important;
-            font-weight: 700 !important;
-            letter-spacing: 2px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+            color: white !important; border: none !important;
+            border-radius: 12px !important; font-weight: 700 !important;
+            padding: 12px 18px !important; letter-spacing: .02em;
+            box-shadow: 0 10px 24px -10px rgba(99,102,241,0.9);
+            transition: transform .15s ease;
         }
+        .stButton>button:hover { transform: translateY(-2px); }
 
-        .stButton>button:hover {
-            background: var(--executive-gold) !important;
-            color: white !important;
-            transform: scale(1.02);
+        [data-testid="stMetricValue"] { color: #f4f7fb; }
+        .stTabs [data-baseweb="tab-list"] { gap: 6px; }
+        .stTabs [data-baseweb="tab"] {
+            background: rgba(255,255,255,0.04); border-radius: 10px 10px 0 0;
+            padding: 8px 14px; color:#aab8cf;
         }
-
-        .status-pill {
-            padding: 2px 10px;
-            font-size: 10px;
-            font-weight: bold;
-            border-radius: 100px;
-            text-transform: uppercase;
-        }
+        .stTabs [aria-selected="true"] { background: rgba(99,102,241,0.18); color:#fff; }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def kpi_card(label, value, sub="", color=PRIMARY):
+    return f"""
+    <div class="kpi accent" style="--c:{color}">
+        <div class="label">{label}</div>
+        <div class="value" style="color:{color}">{value}</div>
+        <div class="sub">{sub}</div>
+    </div>
+    """
+
+
+def section(title, icon=""):
+    st.markdown(
+        f'<div class="section"><div class="bar"></div><h3>{icon} {title}</h3></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _dark_layout(fig, height=420):
+    fig.update_layout(
+        font=dict(family="Inter", color="#cdd7e6"),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=height,
+        margin=dict(l=10, r=10, t=10, b=10),
+    )
+    return fig
+
 
 def render_3d_globe(geo_data):
-    """Construit un globe terrestre 3D interactif (orthographique).
-
-    - Choropleth : intensité = risque moyen par pays.
-    - Bulles scattergeo : taille = volume de transactions, couleur = risque.
-    Le rendu orthographique est rotatif à la souris (vrai effet 3D).
-    """
+    """Globe terrestre 3D interactif : choropleth de risque + bulles de volume."""
     df = geo_data.copy()
     df = df[df["country"].notna() & (df["country"] != "")]
-
-    # Conversion ISO-2 -> ISO-3 + coordonnées pour le positionnement des bulles.
     df["iso3"] = df["country"].map(lambda c: COUNTRY_INFO.get(str(c).upper(), (None,))[0])
     df["nom"] = df["country"].map(lambda c: COUNTRY_INFO.get(str(c).upper(), (None, str(c)))[1])
     df["lat"] = df["country"].map(lambda c: COUNTRY_INFO.get(str(c).upper(), (None, None, None, None))[2])
     df["lon"] = df["country"].map(lambda c: COUNTRY_INFO.get(str(c).upper(), (None, None, None, None))[3])
 
     fig = go.Figure()
-
-    # Couche 1 : surface des pays colorée par le risque.
     geo_known = df[df["iso3"].notna()]
     if not geo_known.empty:
         fig.add_trace(go.Choropleth(
-            locations=geo_known["iso3"],
-            z=geo_known["Risque Moyen"],
-            text=geo_known["nom"],
-            colorscale=[[0, "#0d3b66"], [0.5, "#d4af37"], [1, "#dc2626"]],
-            marker_line_color="rgba(212,175,55,0.5)",
-            marker_line_width=0.5,
-            colorbar=dict(
-                title=dict(text="RISQUE", font=dict(color="#d4af37", size=12)),
-                tickfont=dict(color="#e2e8f0"),
-                thickness=14, len=0.55, x=0.92, bgcolor="rgba(0,0,0,0)",
-            ),
+            locations=geo_known["iso3"], z=geo_known["Risque Moyen"], text=geo_known["nom"],
+            colorscale=[[0, "#1e3a8a"], [0.5, "#f59e0b"], [1, "#ef4444"]],
+            marker_line_color="rgba(99,102,241,0.5)", marker_line_width=0.5,
+            colorbar=dict(title=dict(text="RISQUE", font=dict(color="#cdd7e6", size=11)),
+                          tickfont=dict(color="#cdd7e6"), thickness=12, len=0.5, x=0.95,
+                          bgcolor="rgba(0,0,0,0)"),
             hovertemplate="<b>%{text}</b><br>Risque moyen : %{z:.2f}<extra></extra>",
         ))
 
-    # Couche 2 : bulles de volume sur chaque pays localisé.
     geo_pts = df[df["lat"].notna()]
     if not geo_pts.empty:
         sizeref = max(geo_pts["Volume"].max(), 1) / 1600.0
         fig.add_trace(go.Scattergeo(
             lon=geo_pts["lon"], lat=geo_pts["lat"],
             text=geo_pts["nom"] + " — " + geo_pts["Volume"].astype(str) + " tx",
-            marker=dict(
-                size=geo_pts["Volume"], sizemode="area", sizeref=sizeref, sizemin=6,
-                color=geo_pts["Risque Moyen"],
-                colorscale=[[0, "#059669"], [0.5, "#d4af37"], [1, "#dc2626"]],
-                cmin=0, cmax=1, opacity=0.9,
-                line=dict(width=1, color="rgba(255,255,255,0.7)"),
-            ),
-            hovertemplate="<b>%{text}</b><extra></extra>",
-            showlegend=False,
+            marker=dict(size=geo_pts["Volume"], sizemode="area", sizeref=sizeref, sizemin=6,
+                        color=geo_pts["Risque Moyen"],
+                        colorscale=[[0, "#10b981"], [0.5, "#f59e0b"], [1, "#ef4444"]],
+                        cmin=0, cmax=1, opacity=0.92, line=dict(width=1, color="rgba(255,255,255,0.7)")),
+            hovertemplate="<b>%{text}</b><extra></extra>", showlegend=False,
         ))
 
-    # Style "vue depuis l'espace".
     fig.update_geos(
-        projection_type="orthographic",
-        projection_rotation=dict(lon=10, lat=25),
-        showland=True, landcolor="#11151c",
-        showocean=True, oceancolor="#05070a",
-        showcountries=True, countrycolor="rgba(212,175,55,0.18)",
-        showcoastlines=True, coastlinecolor="rgba(212,175,55,0.35)",
-        showframe=False,
-        bgcolor="rgba(0,0,0,0)",
+        projection_type="orthographic", projection_rotation=dict(lon=10, lat=25),
+        showland=True, landcolor="#0f1a2e", showocean=True, oceancolor="#070b14",
+        showcountries=True, countrycolor="rgba(99,102,241,0.18)",
+        showcoastlines=True, coastlinecolor="rgba(34,211,238,0.3)",
+        showframe=False, bgcolor="rgba(0,0,0,0)",
     )
+    return _dark_layout(fig, height=520)
+
+
+def render_donut(nb_susp, nb_safe):
+    fig = go.Figure(go.Pie(
+        labels=["Suspectes", "Conformes"], values=[nb_susp, nb_safe], hole=0.68,
+        marker=dict(colors=[DANGER, SAFE], line=dict(color="#0b1220", width=2)),
+        textinfo="percent", textfont=dict(color="#fff", size=13), sort=False,
+    ))
+    total = nb_susp + nb_safe
+    pct = (nb_susp / total * 100) if total else 0
     fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font_family="Times New Roman",
-        height=520,
-        margin=dict(l=0, r=0, t=10, b=0),
-        dragmode="orbit",
+        showlegend=True, legend=dict(orientation="h", y=-0.1, font=dict(color="#cdd7e6")),
+        annotations=[dict(text=f"<b>{pct:.0f}%</b><br><span style='font-size:11px;color:#93a3bd'>à risque</span>",
+                          x=0.5, y=0.5, showarrow=False, font=dict(color="#f4f7fb", size=22))],
     )
-    return fig
+    return _dark_layout(fig, height=380)
 
 
 def render_reasons_chart(merged):
-    """Histogramme des principaux motifs de suspicion détectés."""
     susp = merged[merged["is_suspicious"] == True]
     if susp.empty:
         return None
     counts = susp["reason"].fillna("Non spécifié").value_counts().head(8).reset_index()
     counts.columns = ["Motif", "Occurrences"]
-    fig = px.bar(
-        counts.sort_values("Occurrences"), x="Occurrences", y="Motif",
-        orientation="h", color="Occurrences",
-        color_continuous_scale=[[0, "#d4af37"], [1, "#dc2626"]],
-    )
-    fig.update_layout(
-        font_family="Times New Roman", paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)", coloraxis_showscale=False,
-        height=520, margin=dict(l=0, r=10, t=10, b=0),
-        yaxis_title=None, xaxis_title="Transactions signalées",
-    )
-    return fig
+    fig = px.bar(counts.sort_values("Occurrences"), x="Occurrences", y="Motif",
+                 orientation="h", color="Occurrences",
+                 color_continuous_scale=[[0, WARN], [1, DANGER]])
+    fig.update_layout(coloraxis_showscale=False, yaxis_title=None,
+                      xaxis_title="Transactions signalées",
+                      xaxis=dict(gridcolor="rgba(255,255,255,0.06)"))
+    return _dark_layout(fig, height=380)
 
 
 def render_radar_chart(merged):
-    # Dimensions de risque agrégées pour le radar
-    categories = ['Volume', 'Score de Risque', 'Géo-Vélocité', 'Pic de Montant', 'Fréquence']
-    
-    # Agrégation factice pour l'effet radar
+    categories = ['Volume', 'Score de risque', 'Géo-vélocité', 'Pic de montant', 'Fréquence']
     values = [
         len(merged) / 100,
         merged['fraud_score'].mean() * 10,
-        merged[merged['reason'].str.contains('Géo|Incohérence', na=False)]['fraud_score'].count() * 2,
+        merged[merged['reason'].str.contains('pays|géo', case=False, na=False)]['fraud_score'].count() * 2,
         merged[merged['reason'].str.contains('Montant', na=False)]['fraud_score'].count() * 2,
-        merged[merged['reason'].str.contains('fréquentes', na=False)]['fraud_score'].count() * 2
+        merged[merged['reason'].str.contains('fréquentes', na=False)]['fraud_score'].count() * 2,
     ]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=values,
-        theta=categories,
-        fill='toself',
-        name='Profil de Risque',
-        line=dict(color='#d4af37', width=2),
-        fillcolor='rgba(212, 175, 55, 0.35)'
-    ))
-
+    fig = go.Figure(go.Scatterpolar(
+        r=values, theta=categories, fill='toself', name='Profil de risque',
+        line=dict(color=CYAN, width=2), fillcolor='rgba(34,211,238,0.25)'))
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
-        showlegend=False,
-        font_family="Times New Roman",
-        paper_bgcolor='rgba(0,0,0,0)',
-        height=520,
-        margin=dict(l=40, r=40, t=40, b=40)
-    )
-    return fig
+        polar=dict(bgcolor="rgba(255,255,255,0.02)",
+                   radialaxis=dict(visible=True, range=[0, 10], gridcolor="rgba(255,255,255,0.1)",
+                                   tickfont=dict(color="#8b9bb4")),
+                   angularaxis=dict(tickfont=dict(color="#cdd7e6"))),
+        showlegend=False)
+    return _dark_layout(fig, height=380)
 
-def render_executive_dashboard(df, results_df):
-    merged = pd.concat([df, results_df.drop(columns=['transaction_id'])], axis=1)
-    
-    # Traitement des données complètes
-    filtered = merged.copy()
 
-    filtered['fraud_score'] = pd.to_numeric(filtered['fraud_score'], errors='coerce').fillna(0)
+def render_top_risks(merged):
+    susp = merged[merged["is_suspicious"] == True].sort_values("fraud_score", ascending=False).head(5)
+    if susp.empty:
+        st.success("✅ Aucune transaction suspecte sur ce flux — clientèle saine.")
+        return
+    for _, r in susp.iterrows():
+        score = float(r["fraud_score"])
+        c = DANGER if score >= 0.8 else (WARN if score >= 0.6 else SAFE)
+        amount = r.get("amount")
+        amount_str = f"{amount:,.2f} {r.get('currency','')}" if pd.notna(amount) else "—"
+        st.markdown(
+            f"""
+            <div class="riskcard" style="--c:{c}">
+                <div class="top">
+                    <span class="tid">🔴 {r.get('transaction_id','?')}</span>
+                    <span class="score">{score:.2f}</span>
+                </div>
+                <div class="reason">{r.get('reason','')}</div>
+                <div class="meta">Client {r.get('user_id','?')} · {amount_str} · {r.get('country','?')}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # KPIs
-    st.markdown("### INDICATEURS CLÉS D'INTELLIGENCE")
-    nb_susp = int(filtered['is_suspicious'].sum())
-    taux = (nb_susp / len(df) * 100) if len(df) > 0 else 0
-    montant_a_risque = filtered.loc[filtered['is_suspicious'] == True, 'amount']
-    montant_a_risque = pd.to_numeric(montant_a_risque, errors='coerce').fillna(0).abs().sum()
 
-    k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("UNITÉS ANALYSÉES", len(df))
-    k2.metric("MENACES DÉTECTÉES", nb_susp, delta=f"{taux:.0f}% du flux", delta_color="inverse")
-    k3.metric("MONTANT À RISQUE", f"{montant_a_risque:,.0f}")
-    k4.metric("SCORE MOYEN", f"{filtered['fraud_score'].mean():.2f}" if not filtered.empty else "0.00")
-    k5.metric("INTÉGRITÉ SYSTÈME", f"{(1 - nb_susp/len(df))*100:.1f}%" if len(df) > 0 else "100%")
+def render_dashboard(df, results_df, score_filter):
+    merged = pd.concat([df.reset_index(drop=True),
+                        results_df.drop(columns=['transaction_id']).reset_index(drop=True)], axis=1)
+    merged['fraud_score'] = pd.to_numeric(merged['fraud_score'], errors='coerce').fillna(0)
 
-    st.divider()
+    nb_total = len(merged)
+    nb_susp = int(merged['is_suspicious'].sum())
+    nb_safe = nb_total - nb_susp
+    taux = (nb_susp / nb_total * 100) if nb_total else 0
+    montant_risque = pd.to_numeric(
+        merged.loc[merged['is_suspicious'] == True, 'amount'], errors='coerce'
+    ).fillna(0).abs().sum()
+    score_moyen = merged['fraud_score'].mean() if nb_total else 0
+    integrite = (1 - nb_susp / nb_total) * 100 if nb_total else 100
 
-    # Grille d'Analyse Visuelle
-    col_a, col_b = st.columns([1.4, 1])
+    # --- KPIs ---
+    section("Indicateurs clés", "📊")
+    cols = st.columns(5)
+    cards = [
+        kpi_card("Transactions", f"{nb_total}", "analysées", CYAN),
+        kpi_card("Menaces", f"{nb_susp}", f"{taux:.0f}% du flux", DANGER),
+        kpi_card("Montant à risque", f"{montant_risque:,.0f}", "exposition cumulée", WARN),
+        kpi_card("Score moyen", f"{score_moyen:.2f}", "sur 1.00", PRIMARY),
+        kpi_card("Intégrité", f"{integrite:.1f}%", "clients sains", SAFE),
+    ]
+    for col, card in zip(cols, cards):
+        col.markdown(card, unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- Globe + analyses ---
+    col_a, col_b = st.columns([1.5, 1])
     with col_a:
-        st.markdown("### 🌍 SURVEILLANCE GÉOSPATIALE GLOBALE (3D)")
-        st.caption("Faites pivoter le globe à la souris. Bulles = volume · Couleur = risque.")
-        if not filtered.empty:
-            geo_data = filtered.groupby('country').agg({
-                'fraud_score': 'mean',
-                'transaction_id': 'count'
-            }).reset_index()
-            geo_data.columns = ['country', 'Risque Moyen', 'Volume']
+        section("Surveillance géospatiale 3D", "🌍")
+        st.caption("Faites pivoter le globe à la souris · bulles = volume · couleur = risque")
+        geo_data = merged.groupby('country').agg(
+            {'fraud_score': 'mean', 'transaction_id': 'count'}).reset_index()
+        geo_data.columns = ['country', 'Risque Moyen', 'Volume']
+        if not geo_data.empty:
             st.plotly_chart(render_3d_globe(geo_data), use_container_width=True)
         else:
-            st.info("Aucune donnée disponible pour la cartographie.")
+            st.info("Aucune donnée géographique.")
 
     with col_b:
-        tab_radar, tab_reasons = st.tabs(["PROFIL DE RISQUE", "MOTIFS DÉTECTÉS"])
-        with tab_radar:
-            if not filtered.empty:
-                st.plotly_chart(render_radar_chart(filtered), use_container_width=True)
+        section("Vue analytique", "🧭")
+        t1, t2, t3 = st.tabs(["Répartition", "Profil", "Motifs"])
+        with t1:
+            st.plotly_chart(render_donut(nb_susp, nb_safe), use_container_width=True)
+        with t2:
+            st.plotly_chart(render_radar_chart(merged), use_container_width=True)
+        with t3:
+            fig_r = render_reasons_chart(merged)
+            if fig_r is not None:
+                st.plotly_chart(fig_r, use_container_width=True)
             else:
-                st.info("Données insuffisantes pour le profilage.")
-        with tab_reasons:
-            fig_reasons = render_reasons_chart(filtered) if not filtered.empty else None
-            if fig_reasons is not None:
-                st.plotly_chart(fig_reasons, use_container_width=True)
-            else:
-                st.success("Aucun motif de fraude détecté sur ce flux.")
+                st.success("Aucun motif de fraude détecté.")
 
-    st.divider()
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # Registre détaillé avec mise en couleur du risque
-    st.markdown("### REGISTRE FORENSIQUE DES TRANSACTIONS")
-    if not filtered.empty:
-        only_susp = st.toggle("Afficher uniquement les transactions suspectes", value=False)
-        view = filtered.copy()
+    # --- Top risques + table ---
+    col_t, col_d = st.columns([1, 2])
+    with col_t:
+        section("Top alertes", "🚨")
+        render_top_risks(merged)
+    with col_d:
+        section("Registre forensique", "📋")
+        only_susp = st.toggle("Suspectes uniquement", value=False)
+        view = merged.copy()
+        view = view[view['fraud_score'] >= score_filter]
         if only_susp:
             view = view[view['is_suspicious'] == True]
+        wanted = ['transaction_id', 'user_id', 'amount', 'currency', 'country',
+                  'fraud_score', 'is_suspicious', 'reason']
+        wanted = [c for c in wanted if c in view.columns]
+        view = view[wanted].sort_values('fraud_score', ascending=False)
 
-        cols = ['transaction_id', 'user_id', 'amount', 'currency', 'country', 'fraud_score', 'reason']
-        cols = [c for c in cols if c in view.columns]
-        view = view[cols].sort_values('fraud_score', ascending=False)
-
-        def _color_score(val):
+        def _color(v):
             try:
-                v = float(val)
+                v = float(v)
             except (TypeError, ValueError):
                 return ''
             if v >= 0.7:
-                return 'background-color: #fee2e2; color: #991b1b; font-weight: bold'
+                return 'background-color: rgba(239,68,68,0.22); color:#fecaca; font-weight:700'
             if v >= 0.4:
-                return 'background-color: #fef3c7; color: #92400e; font-weight: bold'
-            return 'background-color: #dcfce7; color: #166534'
+                return 'background-color: rgba(245,158,11,0.20); color:#fde68a; font-weight:700'
+            return 'background-color: rgba(16,185,129,0.16); color:#bbf7d0'
 
         styler = view.style
-        # Styler.map (pandas >= 2.1) remplace applymap (déprécié/supprimé).
         _apply_cell = getattr(styler, 'map', None) or styler.applymap
-        styled = _apply_cell(_color_score, subset=['fraud_score']) \
-            .format({'fraud_score': '{:.2f}', 'amount': '{:.2f}'})
+        styled = _apply_cell(_color, subset=['fraud_score']).format(
+            {'fraud_score': '{:.2f}', 'amount': '{:.2f}'})
+        st.dataframe(styled, use_container_width=True, height=430)
 
-        st.dataframe(styled, use_container_width=True, height=460)
-    else:
-        st.warning("Aucune transaction ne correspond aux critères forensiques sélectionnés.")
+        # Export
+        flagged = merged[merged['is_suspicious'] == True]
+        buff = io.StringIO()
+        flagged.to_csv(buff, index=False)
+        st.download_button(
+            "⬇️ Exporter les transactions suspectes (CSV)",
+            data=buff.getvalue(),
+            file_name="transactions_suspectes.csv",
+            mime="text/csv",
+            use_container_width=True,
+            disabled=flagged.empty,
+        )
+
 
 def main():
-    apply_executive_style()
-    
-    # En-tête personnalisé
-    st.markdown("""
-        <div style="text-align: center; border-bottom: 2px solid #c5a059; padding-bottom: 20px; margin-bottom: 30px;">
-            <h1 style="font-size: 3rem; margin: 0;">COMMANDEMENT DE L'INTÉGRITÉ FINANCIÈRE</h1>
-            <p style="font-style: italic; font-size: 1.2rem; color: #666;">Surveillance de Fraude de Haut Niveau & Audit Neuronal</p>
+    inject_css()
+
+    st.markdown(
+        """
+        <div class="hero">
+            <div class="logo">🛡️</div>
+            <div>
+                <h1>FRAUD-SHIELD</h1>
+                <p>Centre de commandement — détection de fraude financière par l'IA · INTELO2026</p>
+            </div>
+            <div class="live"><span class="dot"></span> Système opérationnel</div>
         </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
     with st.sidebar:
-        st.markdown("<h2 style='color:white; border:none;'>PANNEAU DE CONTRÔLE</h2>", unsafe_allow_html=True)
+        st.markdown("### ⚙️ Panneau de contrôle")
         st.divider()
         use_sample = st.toggle("Utiliser les données d'exemple", value=True)
-        
+
         data = []
         if use_sample:
-            SAMPLE_CSV = Path(__file__).parent / "data" / "sample_transactions.csv"
-            data = load_transactions(str(SAMPLE_CSV))
-            st.success(f"Flux d'exemple : {len(data)} tx")
+            sample = Path(__file__).parent / "data" / "sample_transactions.csv"
+            try:
+                data = load_transactions(str(sample))
+                st.success(f"Flux d'exemple chargé : {len(data)} transactions")
+            except Exception as e:
+                st.error(f"Erreur de chargement : {e}")
         else:
-            uploaded = st.file_uploader("IMPORTER FLUX CSV", type="csv")
+            uploaded = st.file_uploader("Importer un flux CSV", type="csv")
             if uploaded:
                 tmp = Path(".upload_current.csv")
                 tmp.write_bytes(uploaded.getvalue())
                 data = load_transactions(str(tmp))
-                st.success(f"Flux personnalisé : {len(data)} tx")
+                st.success(f"Flux importé : {len(data)} transactions")
 
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.info("Statut Système : OPÉRATIONNEL")
-        st.caption("Protocole : INTELO-2026-X")
+        st.divider()
+        score_filter = st.slider(
+            "Seuil d'affichage du risque", 0.0, 1.0, 0.0, 0.05,
+            help="Filtre le registre : n'affiche que les transactions au-dessus de ce score.",
+        )
+        st.caption("Le moteur signale une transaction dès que son score atteint 0.60.")
+        st.divider()
+        st.info("Protocole : INTELO-2026-X")
+        st.caption("Moteur de règles explicables · 100% local, sans boîte noire")
 
     if data:
-        if st.button("AUTHENTIFIER & ANALYSER LE FLUX NEURONAL", use_container_width=True):
-            with st.spinner("Traitement du flux sécurisé..."):
+        analyse = st.button("🔍 LANCER L'ANALYSE DU FLUX", use_container_width=True)
+        if analyse or st.session_state.get("_analysed"):
+            st.session_state["_analysed"] = True
+            with st.spinner("Analyse des transactions en cours…"):
                 results = detect_fraud(data)
-                render_executive_dashboard(pd.DataFrame(data), pd.DataFrame(results))
+            render_dashboard(pd.DataFrame(data), pd.DataFrame(results), score_filter)
     else:
-        st.warning("En attente du flux de données sécurisé pour initialisation.")
+        st.warning("⏳ En attente d'un flux de données. Activez les données d'exemple ou importez un CSV.")
+
 
 if __name__ == "__main__":
     main()
